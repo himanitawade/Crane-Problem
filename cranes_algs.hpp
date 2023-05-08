@@ -27,42 +27,123 @@ namespace cranes {
 // with an assertion.
 //
 // The grid must be non-empty.
-path crane_unloading_exhaustive(const grid& setting) {
+  path crane_unloading_exhaustive(const grid& setting) {
 
-  // grid must be non-empty.
-  assert(setting.rows() > 0);
-  assert(setting.columns() > 0);
+    // grid must be non-empty.
+    assert(setting.rows() > 0);
+    assert(setting.columns() > 0);
 
-  // Compute maximum path length, and check that it is legal.
-  const size_t max_steps = setting.rows() + setting.columns() - 2;
-  assert(max_steps < 64);
+    // Compute maximum path length, and check that it is legal.
+    const size_t max_steps = setting.rows() + setting.columns() - 2;
+    assert(max_steps < 64);
 
-  // TODO: implement the exhaustive search algorithm, then delete this
-  // comment.
-  path best(setting);
-  for (size_t steps = 0; steps <= max_steps; steps++) {
-}
+    path best(setting);
+    path new_path(setting);
+
+    std::vector<path> all_paths;
+    all_paths.insert(all_paths.end(), new_path);
+
+
+    for (size_t steps = 0; steps <= max_steps; steps++) {
+        if (best.final_row()+1 == setting.rows() &&
+            best.final_column()+1 == setting.columns()) break;
+
+        std::vector<path> new_paths = all_paths;
+        all_paths.clear();
+
+        while (!new_paths.empty()){
+          new_path = new_paths.back();
+          new_paths.pop_back();
+
+          if (new_path.final_row()+1 == setting.rows() &&
+              new_path.final_column()+1 == setting.columns()){
+            if (best.total_cranes() < new_path.total_cranes()){
+              best = new_path;
+            }
+          }
+          else {
+            if (new_path.is_step_valid(STEP_DIRECTION_EAST)){
+              path next_path = new_path;
+              next_path.add_step(STEP_DIRECTION_EAST);
+              all_paths.insert(all_paths.end(), next_path);
+            }
+            if (new_path.is_step_valid(STEP_DIRECTION_SOUTH)){
+              path next_path = new_path;
+              next_path.add_step(STEP_DIRECTION_SOUTH);
+              all_paths.insert(all_paths.end(), next_path);
+            }
+          }
+        }
+    }
+    return best;
+  }
 
 // Solve the crane unloading problem for the given grid, using a dynamic
 // programming algorithm.
 //
 // The grid must be non-empty.
 //path crane_unloading_dyn_prog(const grid& setting) {
-path crane_unloading_dyn_prog(const grid& setting) {
+  path crane_unloading_dyn_prog(const grid& setting) {
 
-  // grid must be non-empty.
-  assert(setting.rows() > 0);
-  assert(setting.columns() > 0);
+    path best(setting);
+    assert(setting.rows() > 0);
+    assert(setting.columns() > 0);
 
-  // TODO: implement the dynamic programming algorithm, then delete this
-  // comment.
+    int my_grid[setting.rows()+1][setting.columns()+1];
+    cell_kind current_cell;
 
+    for(int i = 0; i < setting.rows()+1; i++){
+      for(int j = 0; j < setting.columns()+1; j++){
+          if (i == 0 || j == 0) {
+            my_grid[i][j] = 0;
+          } else {
+            if (i == 1 && j == 1) my_grid[i][j] = 1;
+            else my_grid[i][j] = 0;
+            current_cell = setting.get(i-1,j-1);
+            if (current_cell == CELL_BUILDING) {
+              my_grid[i][j] = -1;
+            } else {
+              if (current_cell == CELL_CRANE){
+                my_grid[i][j] += 1;
+              }
+              int max;
+              if (my_grid[i-1][j] > my_grid[i][j-1]){
+                max = my_grid[i-1][j];
+              } else max = my_grid[i][j-1];
+              my_grid[i][j] += max;
+            }
+        }
+      }
+    }
 
+    const size_t max_steps = setting.rows() + setting.columns() - 2;
+    int x = setting.rows();
+    int y = setting.columns();
+    std::vector<step_direction> directions; 
 
-   assert(best->has_value());
-//  //   std::cout << "total cranes" << (**best).total_cranes() << std::endl;
+    for (int i = 0; i < max_steps; i++){
+      if ((my_grid[x-1][y] == -1) && (my_grid[x][y-1] == -1)){
+        --y;
+        --x;
+      } else if (my_grid[x][y] == -1){
+        --y;
+        break;
+      } else if ((my_grid[x-1][y] >= my_grid[x][y-1]) && x != 1){
+        directions.insert(directions.end(), STEP_DIRECTION_SOUTH);
+        --x;
+      } else if (y != 1) {
+        directions.insert(directions.end(), STEP_DIRECTION_EAST);
+        --y;
+      }
+    }
 
-   return **best;
-	}
-
+    int size = directions.size();
+    for (int i = size; i > 0; i--) {
+      step_direction current_direction = directions.back();
+      if (best.is_step_valid(current_direction)) best.add_step(current_direction);
+      directions.pop_back(); 
+    }
+    return best;
+    
+  }
 }
